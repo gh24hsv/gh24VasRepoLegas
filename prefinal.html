@@ -1,0 +1,1392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ricochet Rumble</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #1a1a1a;
+            color: #f0f0f0;
+            font-family: Arial, sans-serif;
+        }
+
+        #game-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            width: 80%;
+            max-width: 1000px;
+            background-color: #2a2a2a;
+            padding: 20px;
+            border-radius: 10px;
+        }
+
+        #game-title {
+            font-size: 3em;
+            margin-bottom: 20px;
+        }
+
+        .controls {
+            margin-bottom: 20px;
+        }
+
+        button, select {
+            margin: 5px;
+            padding: 10px 20px;
+            font-size: 1em;
+            background-color: #ff6347;
+            border: none;
+            color: white;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+
+        button:disabled, select:disabled {
+            background-color: #888;
+            cursor: not-allowed;
+        }
+
+        button:hover:not(:disabled) {
+            background-color: #ff4500;
+        }
+
+        #players {
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+        }
+
+        #players span {
+            font-size: 1.2em;
+        }
+
+        #game-board {
+            display: none; /* Hide the game board initially */
+            grid-template-columns: repeat(9, 40px);
+            grid-template-rows: repeat(9, 40px);
+            gap: 2px;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        .cell, .header-cell {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border: 1px solid #444;
+            background-color: #333;
+            color: #f0f0f0;
+        }
+
+        .header-cell {
+            background-color: #555;
+            font-weight: bold;
+        }
+
+        .coin {
+            width: 30px;
+            height: 30px;
+        }
+
+        .coin.titan {
+            border: 3px solid;
+        }
+
+        .coin.canon {
+            width: 15px;
+            height: 30px;
+            border: 3px solid;
+        }
+
+        .coin.ricochet {
+            width: 20px;
+            height: 2px;
+            border: 3px solid;
+            transform: rotate(45deg);
+        }
+
+        .coin.semiricochet {
+            width: 0;
+            height: 0;
+            border-left: 21px solid transparent;
+            border-bottom: 21px solid;
+        }
+
+        .coin.tank {
+            width: 30px;
+            height: 15px;
+            border: 3px solid;
+        }
+
+        .player1 {
+            border-color: blue;
+        }
+
+        .player2 {
+            border-color: green;
+        }
+
+        .selected {
+            background-color: rgba(255, 255, 255, 0.3);
+        }
+
+        .current-turn {
+            font-weight: bold;
+            color: yellow;
+        }
+
+        .rotate-options {
+            display: none;
+            margin-top: 10px;
+        }
+
+        .rotate-button {
+            padding: 5px 10px;
+            margin: 5px;
+            background-color: #ff6347;
+            border: none;
+            color: white;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+
+        .rotate-button:hover {
+            background-color: #ff4500;
+        }
+
+        .red-ball {
+            width: 30px;
+            height: 30px;
+            background-color: red;
+            border-radius: 50%;
+            position: absolute;
+            z-index: 1;
+            display: none;
+        }
+
+        @keyframes break {
+            0% { transform: scale(1); }
+            25% { transform: scale(1.2); }
+            50% { transform: scale(0.8); }
+            75% { transform: scale(1.1); }
+            100% { transform: scale(0); }
+        }
+
+        .breaking {
+            animation: break 1s forwards;
+        }
+
+        #move-history {
+            flex: 1;
+            padding-left: 20px;
+        }
+
+        #move-history h2, #move-history h3 {
+            color: #ff6347;
+        }
+
+        #move-history ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        #move-history li {
+            background-color: #333;
+            margin: 5px 0;
+            padding: 5px;
+            border: 1px solid #444;
+        }
+
+        .direction-options {
+            display: none;
+            position: absolute;
+            background: white;
+            border: 1px solid black;
+            padding: 10px;
+            z-index: 10;
+        }
+
+        .direction-options button {
+            margin: 5px;
+        }
+
+        .direction-options {
+            position: absolute;
+            display: none;
+            background: white;
+            border: 1px solid #ccc;
+            padding: 10px;
+        }
+
+        .disabled-coin {
+            opacity: 0.5;
+        }
+
+        #move-list {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 200px;
+            background: #303030;
+            border: 1px solid #e12b62;
+            padding: 10px;
+        }
+
+        #replay-selector {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+        }
+
+        /* Countdown animation */
+        #countdown {
+            display: none;
+            font-size: 5em;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            animation: countdown 1s steps(1) infinite;
+        }
+
+        @keyframes countdown {
+            0%, 100% {
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 1;
+            }
+            50% {
+                transform: translate(-50%, -50%) scale(0.5);
+                opacity: 0.5;
+            }
+        }
+
+        @media (max-width: 768px) {
+            #move-list {
+                position: relative;
+                top: auto;
+                right: auto;
+                width: 100%;
+                margin-top: 20px;
+                border: 1px solid #e12b62;
+                background: #303030;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <h1 id="game-title">Ricochet Rumble</h1>
+        <div class="controls">
+            <label for="game-mode">Game Mode:</label>
+            <select id="game-mode">
+                <option value="human-vs-human">Human vs Human</option>
+                <option value="human-vs-computer">Human vs Computer</option>
+            </select>
+            <label for="positioning-mode">Positioning Mode:</label>
+            <select id="positioning-mode">
+                <option value="standard">Standard</option>
+                <option value="random">Random</option>
+            </select>
+            <button id="start-button">Start Game</button>
+            <button id="pause-button" disabled>Pause</button>
+            <button id="resume-button" disabled>Resume</button>
+            <button id="reset-button" disabled>Reset</button>
+            <button id="undo-button" disabled>Undo</button>
+            <button id="redo-button" disabled>Redo</button>
+            <button id="save-replay-button" disabled>Save Replay</button>
+            <label for="replay-selector">Select Replay:</label>
+            <select id="replay-selector"></select>
+            <button id="replay-game-button">Replay Game</button>
+        </div>
+
+        <div id="players">
+            <span id="player1">Player 1 <span id="player1-timer">300</span>s</span>
+            <span id="player2">Player 2 <span id="player2-timer">300</span>s</span>
+        </div>
+        <div id="game-board"></div>
+        <div id="move-list">
+            <h3>Move List</h3>
+            <ul id="moves"></ul>
+        </div>
+        <div id="game-count">Game Count: <span id="game-count-value">0</span></div>
+        <button id="disable-coin-button" disabled>Disable Coin</button>
+    </div>
+
+    <div class="direction-options" id="direction-options">
+        <button id="shoot-left">Shoot Left</button>
+        <button id="shoot-right">Shoot Right</button>
+    </div>
+
+    <div id="countdown">3</div>
+
+    <!-- Sound effects -->
+    <audio id="move-sound" src="move.mp3"></audio>
+    <audio id="rotate-sound" src="rotate.mp3"></audio>
+    <audio id="shoot-sound" src="shoot.mp3"></audio>
+    <audio id="break-sound" src="break.mp3"></audio>
+    <audio id="disable-sound" src="disable.mp3"></audio>
+
+    <script>
+        document.getElementById('start-button').addEventListener('click', startGame);
+        document.getElementById('pause-button').addEventListener('click', pauseGame);
+        document.getElementById('resume-button').addEventListener('click', resumeGame);
+        document.getElementById('reset-button').addEventListener('click', resetGame);
+        document.getElementById('undo-button').addEventListener('click', undoMove);
+        document.getElementById('redo-button').addEventListener('click', redoMove);
+        document.getElementById('disable-coin-button').addEventListener('click', enableDisableMode);
+        document.getElementById('shoot-left').addEventListener('click', () => shootBallInDirection('left'));
+        document.getElementById('shoot-right').addEventListener('click', () => shootBallInDirection('right'));
+        document.getElementById('save-replay-button').addEventListener('click', saveReplay);
+        document.getElementById('replay-game-button').addEventListener('click', replayGame);
+
+        let currentPlayer = 'player1';
+        let timer;
+        let timeRemaining = { player1: 300, player2: 300 };
+        let gamePaused = false;
+        let moveHistory = [];
+        let redoStack = [];
+        let selectedCoin = null;
+        let rotateOptionsDiv = null;
+        let gameMode = 'human-vs-human';
+        let positioningMode = 'standard';
+        let gameCount = 0;
+        let selectedCanonCell = null;
+        let disableMode = false;
+        let disableUsed = { player1: 0, player2: 0 };
+        const maxDisableUsage = 3;
+        let replayMoves = [];
+        let isReplaying = false;
+
+        function playSound(soundId) {
+            const sound = document.getElementById(soundId);
+            sound.currentTime = 0;
+            sound.play();
+        }
+
+        function startGame() {
+            startCountdown(() => {
+                gameMode = document.getElementById('game-mode').value;
+                positioningMode = document.getElementById('positioning-mode').value;
+                generateGameBoard();
+                addEventListeners();
+                document.getElementById('player1').classList.add('current-turn');
+                document.getElementById('pause-button').disabled = false;
+                document.getElementById('reset-button').disabled = false;
+                document.getElementById('undo-button').disabled = false;
+                document.getElementById('redo-button').disabled = true;
+                document.getElementById('disable-coin-button').disabled = false;
+                timer = setInterval(updateTimer, 1000);
+                updateGameCount();
+                document.getElementById('moves').innerHTML = ''; // Clear move list
+                incrementGameCount(); // Increment the game count at the start of each game
+            });
+        }
+
+        function startCountdown(callback) {
+            const countdownElement = document.getElementById('countdown');
+            countdownElement.style.display = 'block';
+            let count = 3;
+
+            const countdownInterval = setInterval(() => {
+                countdownElement.textContent = count;
+                playVoice(count);
+                count--;
+
+                if (count < 0) {
+                    clearInterval(countdownInterval);
+                    countdownElement.style.display = 'none';
+                    document.getElementById('game-board').style.display = 'grid'; // Show the game board
+                    callback();
+                }
+            }, 1000);
+        }
+
+        function playVoice(count) {
+            const utterance = new SpeechSynthesisUtterance(count.toString());
+            utterance.rate = 1;
+            speechSynthesis.speak(utterance);
+        }
+
+        function generateGameBoard() {
+            const gameBoard = document.getElementById('game-board');
+            gameBoard.innerHTML = '';
+
+            const columns = [' ', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+            const rows = [1, 2, 3, 4, 5, 6, 7, 8];
+            const player1Coins = ['tank', 'semiricochet', 'ricochet', 'titan', 'canon', 'ricochet', 'semiricochet', 'tank'];
+            const player2Coins = ['tank', 'semiricochet', 'ricochet', 'titan', 'canon', 'ricochet', 'semiricochet', 'tank'];
+
+            // Generate column headers
+            columns.forEach(col => {
+                const headerCell = document.createElement('div');
+                headerCell.classList.add('header-cell');
+                headerCell.textContent = col;
+                gameBoard.appendChild(headerCell);
+            });
+
+            // Generate rows and cells
+            rows.forEach(row => {
+                const rowHeaderCell = document.createElement('div');
+                rowHeaderCell.classList.add('header-cell');
+                rowHeaderCell.textContent = row;
+                gameBoard.appendChild(rowHeaderCell);
+
+                columns.slice(1).forEach((col, index) => {
+                    const cell = document.createElement('div');
+                    cell.classList.add('cell');
+                    cell.dataset.row = row;
+                    cell.dataset.col = col;
+
+                    if (positioningMode === 'standard') {
+                        if (row === 1) {
+                            const coin = document.createElement('div');
+                            coin.classList.add('coin', player2Coins[index], 'player2');
+                            cell.appendChild(coin);
+                        } else if (row === 8) {
+                            const coin = document.createElement('div');
+                            coin.classList.add('coin', player1Coins[index], 'player1');
+                            cell.appendChild(coin);
+                        }
+                    } else if (positioningMode === 'random') {
+                        const randomIndex1 = Math.floor(Math.random() * player1Coins.length);
+                        const randomIndex2 = Math.floor(Math.random() * player2Coins.length);
+
+                        if (row === 1) {
+                            const coin = document.createElement('div');
+                            coin.classList.add('coin', player2Coins[randomIndex2], 'player2');
+                            cell.appendChild(coin);
+                            player2Coins.splice(randomIndex2, 1);
+                        } else if (row === 8) {
+                            const coin = document.createElement('div');
+                            coin.classList.add('coin', player1Coins[randomIndex1], 'player1');
+                            cell.appendChild(coin);
+                            player1Coins.splice(randomIndex1, 1);
+                        }
+                    }
+
+                    gameBoard.appendChild(cell);
+                });
+            });
+        }
+
+        function addEventListeners() {
+            const cells = document.querySelectorAll('.cell');
+            cells.forEach(cell => {
+                cell.addEventListener('click', handleCellClick);
+            });
+        }
+
+        function handleCellClick(event) {
+            if (gamePaused) return;
+
+            const cell = event.currentTarget;
+            const coin = cell.querySelector('.coin');
+
+            if (disableMode) {
+                if (coin && coin.classList.contains(currentPlayer)) {
+                    disableCoin(cell, coin);
+                }
+                return;
+            }
+
+            if (selectedCoin) {
+                if (coin && selectedCoin.coin === coin) {
+                    // Deselect the coin
+                    deselectCoin();
+                } else {
+                    moveCoin(cell);
+                }
+            } else if (coin && coin.classList.contains(currentPlayer)) {
+                if (coin.classList.contains('canon')) {
+                    selectedCanonCell = cell;
+                    showDirectionOptions(cell);
+                } else {
+                    selectCoin(cell, coin);
+                }
+            }
+        }
+
+        function selectCoin(cell, coin) {
+            selectedCoin = { cell, coin };
+            cell.classList.add('selected');
+            if (coin.classList.contains('semiricochet') || coin.classList.contains('ricochet')) {
+                showRotateOptions();
+            }
+        }
+
+        function deselectCoin() {
+            selectedCoin.cell.classList.remove('selected');
+            selectedCoin = null;
+            hideRotateOptions();
+        }
+
+        function moveCoin(targetCell) {
+            const targetCoin = targetCell.querySelector('.coin');
+            if (targetCoin && targetCoin.classList.contains('titan')) {
+                // Cannot move or swap with titan
+                return;
+            }
+
+            if (isValidMove(targetCell)) {
+                const { cell, coin } = selectedCoin;
+                if (targetCoin) {
+                    // Swap coins
+                    targetCell.appendChild(coin);
+                    cell.appendChild(targetCoin);
+                } else {
+                    // Move coin to empty cell
+                    targetCell.appendChild(coin);
+                }
+                cell.classList.remove('selected');
+                selectedCoin = null;
+                moveHistory.push({ coin, from: cell, to: targetCell });
+                redoStack = [];
+                document.getElementById('redo-button').disabled = true;
+                logMove(coin, cell, targetCell); // Log the move
+                playSound('move-sound'); // Play move sound
+                if (currentPlayer === 'player1') {
+                    shootBall('player1');
+                } else if (currentPlayer === 'player2') {
+                    shootBall('player2');
+                }
+                switchTurn();
+                hideRotateOptions();
+            }
+        }
+
+        function isValidMove(targetCell) {
+            const targetRow = parseInt(targetCell.dataset.row);
+            const targetCol = targetCell.dataset.col.charCodeAt(0);
+            const currentRow = parseInt(selectedCoin.cell.dataset.row);
+            const currentCol = selectedCoin.cell.dataset.col.charCodeAt(0);
+
+            const rowDiff = Math.abs(targetRow - currentRow);
+            const colDiff = Math.abs(targetCol - currentCol);
+
+            const coinType = selectedCoin.coin.classList;
+
+            if (coinType.contains('ricochet') && targetCell.querySelector('.coin') && !targetCell.querySelector('.coin').classList.contains('titan')) {
+                // Allow ricochet to swap with any piece except titan
+                return true;
+            }
+
+            if (positioningMode === 'random') {
+                if (coinType.contains('canon')) {
+                    // Player 1 Canon can only move within row 8
+                    if (coinType.contains('player1') && currentRow === 8) {
+                        return targetRow === 8 && colDiff === 1;
+                    }
+                    // Player 2 Canon can only move within row 1
+                    if (coinType.contains('player2') && currentRow === 1) {
+                        return targetRow === 1 && colDiff === 1;
+                    }
+                }
+            } else {
+                if (coinType.contains('canon')) {
+                    // Player 1 Canon can only move within row 8
+                    if (coinType.contains('player1') && currentRow === 8) {
+                        return targetRow === 8 && colDiff === 1;
+                    }
+                    // Player 2 Canon can only move within row 1
+                    if (coinType.contains('player2') && currentRow === 1) {
+                        return targetRow === 1 && colDiff === 1;
+                    }
+                }
+            }
+
+            return (rowDiff <= 1 && colDiff <= 1);
+        }
+
+        function updateTimer() {
+            timeRemaining[currentPlayer] -= 1;
+            document.getElementById(`${currentPlayer}-timer`).textContent = timeRemaining[currentPlayer];
+
+            if (timeRemaining[currentPlayer] === 0) {
+                declareWinner(currentPlayer === 'player1' ? 'player2' : 'player1');
+            }
+        }
+
+        function switchTurn() {
+            document.getElementById(currentPlayer).classList.remove('current-turn');
+            currentPlayer = currentPlayer === 'player1' ? 'player2' : 'player1';
+            document.getElementById(currentPlayer).classList.add('current-turn');
+            resetTimer();
+
+            // Disable the Disable Coin button if usage limit is reached
+            if (disableUsed[currentPlayer] > maxDisableUsage) {
+                document.getElementById('disable-coin-button').disabled = true;
+            } else {
+                document.getElementById('disable-coin-button').disabled = false;
+            }
+
+            if (gameMode === 'human-vs-computer' && currentPlayer === 'player2') {
+                setTimeout(computerMove, 500); // Give a brief delay before computer moves
+            }
+        }
+
+        function resetTimer() {
+            clearInterval(timer);
+            timer = setInterval(updateTimer, 1000);
+        }
+
+        function pauseGame() {
+            clearInterval(timer);
+            gamePaused = true;
+            document.getElementById('resume-button').disabled = false;
+            document.getElementById('pause-button').disabled = true;
+        }
+
+        function resumeGame() {
+            gamePaused = false;
+            resetTimer();
+            document.getElementById('resume-button').disabled = true;
+            document.getElementById('pause-button').disabled = false;
+        }
+
+        function resetGame() {
+            clearInterval(timer);
+            timeRemaining = { player1: 300, player2: 300 };
+            currentPlayer = 'player1';
+            document.getElementById('player1-timer').textContent = timeRemaining.player1;
+            document.getElementById('player2-timer').textContent = timeRemaining.player2;
+            document.getElementById('player1').classList.remove('current-turn');
+            document.getElementById('player2').classList.remove('current-turn');
+            document.getElementById('resume-button').disabled = true;
+            document.getElementById('pause-button').disabled = true;
+            document.getElementById('reset-button').disabled = true;
+            document.getElementById('undo-button').disabled = true;
+            document.getElementById('redo-button').disabled = true;
+            document.getElementById('disable-coin-button').disabled = true;
+            moveHistory = [];
+            redoStack = [];
+            disableUsed = { player1: 0, player2: 0 };
+            replayMoves = []; // Clear replay moves
+            isReplaying = false; // Reset replay flag
+            document.getElementById('move-list').style.display = 'block'; // Show move list
+            generateGameBoard();
+        }
+
+        function undoMove() {
+            if (moveHistory.length === 0) return;
+
+            const lastMove = moveHistory.pop();
+            lastMove.from.appendChild(lastMove.coin);
+            redoStack.push(lastMove);
+            document.getElementById('redo-button').disabled = false;
+
+            switchTurn();
+        }
+
+        function redoMove() {
+            if (redoStack.length === 0) return;
+
+            const move = redoStack.pop();
+            move.to.appendChild(move.coin);
+            moveHistory.push(move);
+
+            if (redoStack.length === 0) {
+                document.getElementById('redo-button').disabled = true;
+            }
+
+            switchTurn();
+        }
+
+        function declareWinner(winner) {
+            clearInterval(timer);
+            alert(`${winner === 'player1' ? 'Player 1' : 'Player 2'} wins!`);
+            gameHistories.push([...moveHistory]); // Store the move history of the game
+            storeGameHistory(); // Store game history in local storage
+            resetGame();
+        }
+
+        function showRotateOptions() {
+            if (!rotateOptionsDiv) {
+                rotateOptionsDiv = document.createElement('div');
+                rotateOptionsDiv.classList.add('rotate-options');
+                document.getElementById('game-container').appendChild(rotateOptionsDiv);
+
+                const rotateLeftButton = document.createElement('button');
+                rotateLeftButton.classList.add('rotate-button');
+                rotateLeftButton.textContent = 'Rotate Left';
+                rotateLeftButton.addEventListener('click', rotateLeft);
+                rotateOptionsDiv.appendChild(rotateLeftButton);
+
+                const rotateRightButton = document.createElement('button');
+                rotateRightButton.classList.add('rotate-button');
+                rotateRightButton.textContent = 'Rotate Right';
+                rotateRightButton.addEventListener('click', rotateRight);
+                rotateOptionsDiv.appendChild(rotateRightButton);
+            }
+
+            rotateOptionsDiv.style.display = 'block';
+        }
+
+        function hideRotateOptions() {
+            if (rotateOptionsDiv) {
+                rotateOptionsDiv.style.display = 'none';
+            }
+        }
+
+        function rotateLeft() {
+            if (selectedCoin && (selectedCoin.coin.classList.contains('semiricochet'))) {
+                const currentRotation = parseInt(selectedCoin.coin.dataset.rotation || '0', 10);
+                const newRotation = (currentRotation - 90) % 360;
+                selectedCoin.coin.style.transform = `rotate(${newRotation}deg)`;
+                selectedCoin.coin.dataset.rotation = newRotation;
+                moveHistory.push({ coin: selectedCoin.coin, rotation: newRotation });
+                redoStack = [];
+                document.getElementById('redo-button').disabled = true;
+                logMove(selectedCoin.coin, null, null, newRotation); // Log the move
+                playSound('rotate-sound'); // Play rotate sound
+                deselectCoin();
+                if (currentPlayer === 'player1') {
+                    shootBall('player1');
+                } else if (currentPlayer === 'player2') {
+                    shootBall('player2');
+                }
+                switchTurn();
+            }
+            if (selectedCoin.coin.classList.contains('ricochet')) {
+                const currentRotation = parseInt(selectedCoin.coin.dataset.rotation || '0', 10);
+                const newRotation = -45;
+                selectedCoin.coin.style.transform = `rotate(${newRotation}deg)`;
+                selectedCoin.coin.dataset.rotation = newRotation;
+                moveHistory.push({ coin: selectedCoin.coin, rotation: newRotation });
+                redoStack = [];
+                document.getElementById('redo-button').disabled = true;
+                logMove(selectedCoin.coin, null, null, newRotation); // Log the move
+                playSound('rotate-sound'); // Play rotate sound
+                deselectCoin();
+                if (currentPlayer === 'player1') {
+                    shootBall('player1');
+                } else if (currentPlayer === 'player2') {
+                    shootBall('player2');
+                }
+                switchTurn();
+            }
+        }
+
+        function rotateRight() {
+            if (selectedCoin && (selectedCoin.coin.classList.contains('semiricochet'))) {
+                const currentRotation = parseInt(selectedCoin.coin.dataset.rotation || '0', 10);
+                const newRotation = (currentRotation + 90) % 360;
+                selectedCoin.coin.style.transform = `rotate(${newRotation}deg)`;
+                selectedCoin.coin.dataset.rotation = newRotation;
+                moveHistory.push({ coin: selectedCoin.coin, rotation: newRotation });
+                redoStack = [];
+                document.getElementById('redo-button').disabled = true;
+                logMove(selectedCoin.coin, null, null, newRotation); // Log the move
+                playSound('rotate-sound'); // Play rotate sound
+                deselectCoin();
+                if (currentPlayer === 'player1') {
+                    shootBall('player1');
+                } else if (currentPlayer === 'player2') {
+                    shootBall('player2');
+                }
+                switchTurn();
+            }
+            if (selectedCoin.coin.classList.contains('ricochet')) {
+                const currentRotation = parseInt(selectedCoin.coin.dataset.rotation || '0', 10);
+                const newRotation = 45;
+                selectedCoin.coin.style.transform = `rotate(${newRotation}deg)`;
+                selectedCoin.coin.dataset.rotation = newRotation;
+                moveHistory.push({ coin: selectedCoin.coin, rotation: newRotation });
+                redoStack = [];
+                document.getElementById('redo-button').disabled = true;
+                logMove(selectedCoin.coin, null, null, newRotation); // Log the move
+                playSound('rotate-sound'); // Play rotate sound
+                deselectCoin();
+                if (currentPlayer === 'player1') {
+                    shootBall('player1');
+                } else if (currentPlayer === 'player2') {
+                    shootBall('player2');
+                }
+                switchTurn();
+            }
+        }
+
+        function shootBall(player) {
+            const canonCell = document.querySelector(`.cell .coin.${player}.canon`).parentElement;
+            const startRow = parseInt(canonCell.dataset.row);
+            const col = canonCell.dataset.col;
+            const direction = player === 'player1' ? -1 : 1; // Player 1 shoots up, Player 2 shoots down
+
+            let ball = document.createElement('div');
+            ball.classList.add('red-ball');
+            document.getElementById('game-board').appendChild(ball);
+
+            let row = startRow + direction;
+            ball.style.top = `${canonCell.offsetTop}px`;
+            ball.style.left = `${canonCell.offsetLeft}px`;
+            ball.style.display = 'block';
+
+            const interval = setInterval(() => {
+                if (row < 1 || row > 8) {
+                    ball.remove();
+                    clearInterval(interval);
+                    return;
+                }
+
+                const targetCell = document.querySelector(`.cell[data-row='${row}'][data-col='${col}']`);
+                if (targetCell && targetCell.childElementCount > 0) {
+                    const targetCoin = targetCell.querySelector('.coin');
+                    if (targetCoin.classList.contains('disabled-coin')) {
+                        // Skip disabled coin
+                        row += direction;
+                        return;
+                    }
+                    if (targetCoin.classList.contains('tank') ||
+                        (player === 'player1' && targetCoin.classList.contains('canon') && targetCoin.classList.contains('player2')) ||
+                        (player === 'player2' && targetCoin.classList.contains('canon') && targetCoin.classList.contains('player1'))) {
+                        ball.remove();
+                    } else if (targetCoin.classList.contains('titan')) {
+                        targetCoin.classList.add('breaking');
+                        playSound('break-sound'); // Play break sound
+                        setTimeout(() => {
+                            targetCoin.remove();
+                            if (targetCoin.classList.contains('player1')) {
+                                declareWinner('player2');
+                            } else {
+                                declareWinner('player1');
+                            }
+                        }, 1000);
+                        ball.remove();
+                        clearInterval(interval);
+                    } else if (targetCoin.classList.contains('ricochet')) {
+                        const rotation = parseInt(targetCoin.dataset.rotation, 10);
+                        ball.remove();
+                        clearInterval(interval);
+                        if (rotation === -45) {
+                            if (direction === 1) {
+                                deflectBall(targetCell, 'left');
+                            } else {
+                                deflectBall(targetCell, 'right');
+                            }
+                        } else {
+                            if (direction === 1) {
+                                deflectBall(targetCell, 'right');
+                            } else {
+                                deflectBall(targetCell, 'left');
+                            }
+                        }
+                    } else if (targetCoin.classList.contains('semiricochet')) {
+                        const rotation = parseInt(targetCoin.dataset.rotation || '0', 10);
+                        ball.remove();
+                        clearInterval(interval);
+                        if (rotation % 360 === 0) {
+                            if (direction === 1) {
+                                deflectBall(targetCell, 'left');
+                            } else {
+                                ball.remove();
+                            }
+                        }
+                        if (rotation % 360 === 90 || rotation % 360 === -270) {
+                            if (direction === 1) {
+                                deflectBall(targetCell, 'right');
+                            } else {
+                                ball.remove();
+                            }
+                        }
+                        if (rotation % 360 === 180 || rotation % 360 === -180) {
+                            if (direction === 1) {
+                                ball.remove();
+                            } else {
+                                deflectBall(targetCell, 'right');
+                            }
+                        }
+                        if (rotation % 360 === -90 || rotation % 360 === 270) {
+                            if (direction === 1) {
+                                ball.remove();
+                            } else {
+                                deflectBall(targetCell, 'left');
+                            }
+                        }
+                    } else {
+                        targetCell.removeChild(targetCoin);
+                    }
+                    playSound('shoot-sound'); // Play shoot sound
+                    clearInterval(interval);
+                } else {
+                    ball.style.top = `${targetCell.offsetTop}px`;
+                }
+
+                row += direction;
+            }, 200);
+
+            // Re-enable disabled coins after ball has stopped
+            setTimeout(() => {
+                const disabledCoins = document.querySelectorAll('.disabled-coin');
+                disabledCoins.forEach(coin => {
+                    coin.classList.remove('disabled-coin');
+                });
+            }, 2000); // Delay should be longer than the interval for ball movement
+
+            // Log the shoot move
+            logMove(null, null, null, null, player, col, direction === -1 ? 'up' : 'down');
+        }
+
+        function deflectBall(startCell, direction) {
+            if (direction === 'left' || direction === 'right') {
+                shootHorizontalBall(startCell, direction);
+            } else {
+                shootVerticalBall(startCell, direction);
+            }
+        }
+
+        function shootHorizontalBall(startCell, direction) {
+            const startRow = parseInt(startCell.dataset.row);
+            const startCol = startCell.dataset.col.charCodeAt(0);
+
+            let ball = document.createElement('div');
+            ball.classList.add('red-ball');
+            document.getElementById('game-board').appendChild(ball);
+
+            let col = direction === 'right' ? startCol + 1 : startCol - 1;
+            ball.style.top = `${startCell.offsetTop}px`;
+            ball.style.left = `${startCell.offsetLeft}px`;
+            ball.style.display = 'block';
+
+            const interval = setInterval(() => {
+                if (col < 'A'.charCodeAt(0) || col > 'H'.charCodeAt(0)) {
+                    ball.remove();
+                    clearInterval(interval);
+                    return;
+                }
+
+                const targetCell = document.querySelector(`.cell[data-row='${startRow}'][data-col='${String.fromCharCode(col)}']`);
+                if (targetCell && targetCell.childElementCount > 0) {
+                    const targetCoin = targetCell.querySelector('.coin');
+                    if (targetCoin.classList.contains('disabled-coin')) {
+                        // Skip disabled coin
+                        col += direction === 'right' ? 1 : -1;
+                        return;
+                    }
+                    if (targetCoin.classList.contains('tank')) {
+                        // Continue moving past the tank
+                        col += direction === 'right' ? 1 : -1;
+                        return;
+                    } else if (targetCoin.classList.contains('canon')) {
+                        ball.remove();
+                    } else if (targetCoin.classList.contains('titan')) {
+                        targetCoin.classList.add('breaking');
+                        playSound('break-sound'); // Play break sound
+                        setTimeout(() => {
+                            targetCoin.remove();
+                            if (targetCoin.classList.contains('player1')) {
+                                declareWinner('player2');
+                            } else {
+                                declareWinner('player1');
+                            }
+                        }, 1000);
+                        ball.remove();
+                        clearInterval(interval);
+                    } else if (targetCoin.classList.contains('ricochet')) {
+                        const rotation = parseInt(targetCoin.dataset.rotation, 10);
+                        ball.remove();
+                        clearInterval(interval);
+                        if (rotation === -45) {
+                            if (direction === 'right') {
+                                deflectBall(targetCell, 'up');
+                            } else {
+                                deflectBall(targetCell, 'down');
+                            }
+                        } else {
+                            if (direction === 'right') {
+                                deflectBall(targetCell, 'down');
+                            } else {
+                                deflectBall(targetCell, 'up');
+                            }
+                        }
+                    } else if (targetCoin.classList.contains('semiricochet')) {
+                        const rotation = parseInt(targetCoin.dataset.rotation || '0', 10);
+                        ball.remove();
+                        clearInterval(interval);
+                        if (rotation % 360 === 0) {
+                            if (direction === 'right') {
+                                deflectBall(targetCell, 'up');
+                            } else {
+                                ball.remove();
+                                targetCoin.remove();
+                            }
+                        }
+                        if (rotation % 360 === 90 || rotation % 360 === -270) {
+                            if (direction === 'right') {
+                                ball.remove();
+                                targetCoin.remove();
+                            } else {
+                                deflectBall(targetCell, 'up');
+                            }
+                        }
+                        if (rotation % 360 === 180 || rotation % 360 === -180) {
+                            if (direction === 'right') {
+                                ball.remove();
+                                targetCoin.remove();
+                            } else {
+                                deflectBall(targetCell, 'down');
+                            }
+                        }
+                        if (rotation % 360 === -90 || rotation % 360 === 270) {
+                            if (direction === 'right') {
+                                deflectBall(targetCell, 'down');
+                            } else {
+                                ball.remove();
+                                targetCoin.remove();
+                            }
+                        }
+                    } else {
+                        targetCell.removeChild(targetCoin);
+                    }
+                    clearInterval(interval);
+                } else {
+                    ball.style.left = `${targetCell.offsetLeft}px`;
+                }
+
+                col += direction === 'right' ? 1 : -1;
+            }, 200);
+
+            // Re-enable disabled coins after ball has stopped
+            setTimeout(() => {
+                const disabledCoins = document.querySelectorAll('.disabled-coin');
+                disabledCoins.forEach(coin => {
+                    coin.classList.remove('disabled-coin');
+                });
+            }, 2000); // Delay should be longer than the interval for ball movement
+        }
+
+        function shootVerticalBall(startCell, direction) {
+            const startRow = parseInt(startCell.dataset.row);
+            const startCol = startCell.dataset.col.charCodeAt(0);
+
+            let ball = document.createElement('div');
+            ball.classList.add('red-ball');
+            document.getElementById('game-board').appendChild(ball);
+
+            let row = direction === 'down' ? startRow + 1 : startRow - 1;
+            ball.style.top = `${startCell.offsetTop}px`;
+            ball.style.left = `${startCell.offsetLeft}px`;
+            ball.style.display = 'block';
+
+            const interval = setInterval(() => {
+                if (row < 1 || row > 8) {
+                    ball.remove();
+                    clearInterval(interval);
+                    return;
+                }
+
+                const targetCell = document.querySelector(`.cell[data-row='${row}'][data-col='${String.fromCharCode(startCol)}']`);
+                if (targetCell && targetCell.childElementCount > 0) {
+                    const targetCoin = targetCell.querySelector('.coin');
+                    if (targetCoin.classList.contains('disabled-coin')) {
+                        // Skip disabled coin
+                        row += direction;
+                        return;
+                    }
+                    if (targetCoin.classList.contains('tank') || targetCoin.classList.contains('canon')) {
+                        ball.remove();
+                    } else if (targetCoin.classList.contains('titan')) {
+                        targetCoin.classList.add('breaking');
+                        playSound('break-sound'); // Play break sound
+                        setTimeout(() => {
+                            targetCoin.remove();
+                            if (targetCoin.classList.contains('player1')) {
+                                declareWinner('player2');
+                            } else {
+                                declareWinner('player1');
+                            }
+                        }, 1000);
+                        ball.remove();
+                        clearInterval(interval);
+                    } else if (targetCoin.classList.contains('ricochet')) {
+                        const rotation = parseInt(targetCoin.dataset.rotation, 10);
+                        ball.remove();
+                        clearInterval(interval);
+                        if (rotation === -45) {
+                            if (direction === 'down') {
+                                deflectBall(targetCell, 'left');
+                            } else {
+                                deflectBall(targetCell, 'right');
+                            }
+                        } else {
+                            if (direction === 'down') {
+                                deflectBall(targetCell, 'right');
+                            } else {
+                                deflectBall(targetCell, 'left');
+                            }
+                        }
+                    } else if (targetCoin.classList.contains('semiricochet')) {
+                        const rotation = parseInt(targetCoin.dataset.rotation || '0', 10);
+                        ball.remove();
+                        clearInterval(interval);
+                        if (rotation % 360 === 0) {
+                            if (direction === 'down') {
+                                deflectBall(targetCell, 'left');
+                            } else {
+                                ball.remove();
+                                targetCoin.remove();
+                            }
+                        }
+                        if (rotation % 360 === 90 || rotation % 360 === -270) {
+                            if (direction === 'down') {
+                                deflectBall(targetCell, 'right');
+                            } else {
+                                ball.remove();
+                                targetCoin.remove();
+                            }
+                        }
+                        if (rotation % 360 === 180 || rotation % 360 === -180) {
+                            if (direction === 'down') {
+                                ball.remove();
+                                targetCoin.remove();
+                            } else {
+                                deflectBall(targetCell, 'right');
+                            }
+                        }
+                        if (rotation % 360 === -90 || rotation % 360 === 270) {
+                            if (direction === 'down') {
+                                ball.remove();
+                            } else {
+                                deflectBall(targetCell, 'left');
+                            }
+                        }
+                    } else {
+                        targetCell.removeChild(targetCoin);
+                    }
+                    clearInterval(interval);
+                } else {
+                    ball.style.top = `${targetCell.offsetTop}px`;
+                }
+
+                row += direction === 'down' ? 1 : -1;
+            }, 200);
+
+            // Re-enable disabled coins after ball has stopped
+            setTimeout(() => {
+                const disabledCoins = document.querySelectorAll('.disabled-coin');
+                disabledCoins.forEach(coin => {
+                    coin.classList.remove('disabled-coin');
+                });
+            }, 2000); // Delay should be longer than the interval for ball movement
+        }
+
+        function showDirectionOptions(cell) {
+            const directionOptions = document.getElementById('direction-options');
+            directionOptions.style.display = 'block';
+            directionOptions.style.top = `${cell.offsetTop}px`;
+            directionOptions.style.left = `${cell.offsetLeft + cell.offsetWidth}px`;
+        }
+
+        function shootBallInDirection(direction) {
+            const startCell = selectedCanonCell;
+            selectedCanonCell = null;
+            document.getElementById('direction-options').style.display = 'none';
+
+            if (direction === 'left') {
+                shootHorizontalBall(startCell, 'left');
+            } else if (direction === 'right') {
+                shootHorizontalBall(startCell, 'right');
+            }
+            playSound('shoot-sound');
+            switchTurn();
+        }
+
+        function enableDisableMode() {
+            disableMode = true;
+            document.getElementById('disable-coin-button').disabled = true;
+        }
+
+        function disableCoin(cell, coin) {
+            coin.classList.add('disabled-coin');
+            disableUsed[currentPlayer]++;
+            disableMode = false;
+
+            // Check if usage limit reached and disable the button if true
+            if (disableUsed[currentPlayer] > maxDisableUsage) {
+                document.getElementById('disable-coin-button').disabled = true;
+            }
+            logMove(coin, cell, null, null, null, null, null, true); // Log the disable move
+            playSound('disable-sound'); // Play disable sound
+            if (currentPlayer === 'player1') {
+                shootBall('player1');
+            } else if (currentPlayer === 'player2') {
+                shootBall('player2');
+            }
+            switchTurn();
+        }
+
+        function computerMove() {
+            const player2Coins = document.querySelectorAll('.coin.player2');
+            let selectedCoin;
+            let selectedCell;
+
+            // Simple AI to make a random valid move
+            for (let coin of player2Coins) {
+                const cell = coin.parentElement;
+                const possibleMoves = getPossibleMoves(cell);
+
+                if (possibleMoves.length > 0) {
+                    selectedCoin = coin;
+                    selectedCell = cell;
+                    const move = possibleMoves[Math.floor(Math.random() * possibleMoves.length)];
+                    moveCoinAI(cell, move);
+                    break;
+                }
+            }
+
+            function getPossibleMoves(cell) {
+                const row = parseInt(cell.dataset.row);
+                const col = cell.dataset.col.charCodeAt(0);
+
+                const moves = [];
+                for (let r = row - 1; r <= row + 1; r++) {
+                    for (let c = col - 1; c <= col + 1; c++) {
+                        if (r >= 1 && r <= 8 && c >= 'A'.charCodeAt(0) && c <= 'H'.charCodeAt(0)) {
+                            const targetCell = document.querySelector(`.cell[data-row='${r}'][data-col='${String.fromCharCode(c)}']`);
+                            if (targetCell && targetCell.childElementCount === 0) {
+                                moves.push(targetCell);
+                            }
+                        }
+                    }
+                }
+                return moves;
+            }
+
+            function moveCoinAI(fromCell, toCell) {
+                if (toCell.childElementCount === 0) {
+                    toCell.appendChild(selectedCoin);
+                    moveHistory.push({ coin: selectedCoin, from: fromCell, to: toCell });
+                    redoStack = [];
+                    document.getElementById('redo-button').disabled = true;
+                    logMove(selectedCoin, fromCell, toCell); // Log the move
+                    playSound('move-sound'); // Play move sound
+                    shootBall('player2');
+                    switchTurn();
+                }
+            }
+        }
+
+        function updateGameCount() {
+            document.getElementById('game-count-value').textContent = gameCount;
+        }
+
+        function incrementGameCount() {
+            gameCount++;
+            updateGameCount();
+        }
+
+        function logMove(coin, fromCell, toCell, rotation = null, shooter = null, col = null, direction = null, disabled = false) {
+            const moveList = document.getElementById('moves');
+            const moveItem = document.createElement('li');
+
+            if (disabled) {
+                moveItem.textContent = `${currentPlayer} disabled ${coin.classList[1]} at ${fromCell.dataset.col}${fromCell.dataset.row}`;
+                replayMoves.push({ type: 'disable', player: currentPlayer, coin: coin.classList[1], from: { col: fromCell.dataset.col, row: fromCell.dataset.row } });
+            } else if (shooter && col && direction) {
+                moveItem.textContent = `${shooter} canon shot ${direction} from column ${col}`;
+                replayMoves.push({ type: 'shoot', shooter, col, direction });
+            } else if (rotation !== null) {
+                moveItem.textContent = `${currentPlayer} rotated ${coin.classList[1]} to ${rotation} degrees`;
+                replayMoves.push({ type: 'rotate', player: currentPlayer, coin: coin.classList[1], rotation });
+            } else {
+                moveItem.textContent = `${currentPlayer} moved ${coin.classList[1]} from ${fromCell.dataset.col}${fromCell.dataset.row} to ${toCell.dataset.col}${toCell.dataset.row}`;
+                replayMoves.push({ type: 'move', player: currentPlayer, coin: coin.classList[1], from: { col: fromCell.dataset.col, row: fromCell.dataset.row }, to: { col: toCell.dataset.col, row: toCell.dataset.row } });
+            }
+
+            moveList.appendChild(moveItem);
+            document.getElementById('save-replay-button').disabled = false; // Enable save replay button
+        }
+
+        function saveReplay() {
+            let storedReplays = JSON.parse(localStorage.getItem('gameReplays')) || [];
+            storedReplays.push(replayMoves);
+            localStorage.setItem('gameReplays', JSON.stringify(storedReplays));
+            updateReplaySelector(); // Update the replay selector with new replay
+        }
+
+        function updateReplaySelector() {
+            const replaySelector = document.getElementById('replay-selector');
+            const storedReplays = JSON.parse(localStorage.getItem('gameReplays')) || [];
+            replaySelector.innerHTML = '';
+            storedReplays.forEach((_, index) => {
+                const option = document.createElement('option');
+                option.value = index;
+                option.textContent = `Replay ${index + 1}`;
+                replaySelector.appendChild(option);
+            });
+        }
+
+        function replayGame() {
+            const replaySelector = document.getElementById('replay-selector');
+            const selectedReplayIndex = replaySelector.value;
+            const storedReplays = JSON.parse(localStorage.getItem('gameReplays'));
+            if (!storedReplays || !storedReplays[selectedReplayIndex]) {
+                alert('No replay data found!');
+                return;
+            }
+
+            const storedMoves = storedReplays[selectedReplayIndex];
+
+            resetGame(); // Reset the game to replay
+            isReplaying = true; // Set replay flag
+            document.getElementById('move-list').style.display = 'none'; // Hide move list during replay
+
+            let moveIndex = 0;
+
+            function executeMove() {
+                if (moveIndex >= storedMoves.length) {
+                    isReplaying = false; // Reset replay flag
+                    document.getElementById('move-list').style.display = 'block'; // Show move list after replay
+                    return;
+                }
+
+                const move = storedMoves[moveIndex];
+                moveIndex++;
+
+                if (move.type === 'move') {
+                    const fromCell = document.querySelector(`.cell[data-row='${move.from.row}'][data-col='${move.from.col}']`);
+                    const toCell = document.querySelector(`.cell[data-row='${move.to.row}'][data-col='${move.to.col}']`);
+                    const coin = fromCell.querySelector('.coin');
+                    toCell.appendChild(coin);
+                    playSound('move-sound'); // Play move sound
+                } else if (move.type === 'rotate') {
+                    const cell = document.querySelector(`.cell .${move.coin}.${move.player}`).parentElement;
+                    const coin = cell.querySelector('.coin');
+                    coin.style.transform = `rotate(${move.rotation}deg)`;
+                    playSound('rotate-sound'); // Play rotate sound
+                } else if (move.type === 'shoot') {
+                    shootBall(move.shooter);
+                } else if (move.type === 'disable') {
+                    const cell = document.querySelector(`.cell[data-row='${move.from.row}'][data-col='${move.from.col}']`);
+                    const coin = cell.querySelector(`.coin.${move.coin}`);
+                    coin.classList.add('disabled-coin');
+                    playSound('disable-sound'); // Play disable sound
+                }
+
+                setTimeout(executeMove, 1000); // Adjust the timeout as needed
+            }
+
+            executeMove();
+        }
+
+        function storeGameHistory() {
+            let storedHistory = JSON.parse(localStorage.getItem('gameHistories')) || [];
+            storedHistory.push(moveHistory);
+            localStorage.setItem('gameHistories', JSON.stringify(storedHistory));
+        }
+
+        // Initialize replay selector
+        updateReplaySelector();
+    </script>
+</body>
+</html>
